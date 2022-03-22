@@ -31,9 +31,8 @@ jobs:
           plugin_notable: yes
           plugin_notable_from: all
           plugin_people: yes
-          plugin_people_limit: 14
+          plugin_people_limit: 23
           plugin_people_shuffle: yes
-          plugin_people_size: 28
+          plugin_people_size: 32
           plugin_people_types: followers
           repositories_forks: yes
-
