@@ -1,0 +1,131 @@
+name: Query Contributions by Year
+
+on:
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  query-contributions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        year: [2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013]
+
+    steps:
+      - name: Query Contributions for Year ${{ matrix.year }}
+        uses: octokit/graphql-action@v2.x
+        id: query_contributions
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          query: |
+            {
+              viewer {
+                contributionsCollection(
+                  from: "${{ matrix.year }}-01-01T00:00:00Z"
+                  to: "${{ matrix.year }}-12-31T23:59:59Z"
+                ) {
+                  user {
+                    login
+                  }
+                  commitContributionsByRepository(maxRepositories: 100) {
+                    repository {
+                      resourcePath
+                      url
+                      owner {
+                        avatarUrl
+                        ... on User {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+      - name: Generate Shields.io URLs and Markdown
+        id: generate_badges
+        run: |
+          set -e
+          echo "Processing repositories for year ${{ matrix.year }}..."
+
+          # Parse the GraphQL response
+          data=$(echo '${{ steps.query_contributions.outputs.data }}' | jq .viewer.contributionsCollection)
+          user_login=$(echo "$data" | jq -r '.user.login')
+
+          # Initialize markdown file for this year
+          markdown_file="badges_${{ matrix.year }}.md"
+          > "$markdown_file"
+
+          # Iterate over repositories
+          echo "$data" | jq -c '.commitContributionsByRepository[] | select(.repository.owner.login != "'$user_login'") | {resourcePath: .repository.resourcePath, url: .repository.url, avatarUrl: .repository.owner.avatarUrl}' | while read -r repo; do
+            resource_path=$(echo "$repo" | jq -r '.resourcePath' | sed 's/-/--/g' | cut -c2-)
+            repo_url=$(echo "$repo" | jq -r '.url')
+            avatar_url=$(echo "$repo" | jq -r '.avatarUrl')
+
+            # Download the avatar image
+            curl -sL "$avatar_url&s=14" -o avatar.png
+
+            # Calculate the average color using ImageMagick
+            avg_color=$(convert avatar.png -resize 1x1 txt:- | grep -oP '#\w+' | head -n 1)
+            echo "Average color for $resource_path: $avg_color"
+
+            # Extract RGB values from the average color
+            r=$((16#$(echo "$avg_color" | cut -c 2-3)))
+            g=$((16#$(echo "$avg_color" | cut -c 4-5)))
+            b=$((16#$(echo "$avg_color" | cut -c 6-7)))
+
+            # Calculate the complementary color
+            comp_r=$((255 - r))
+            comp_g=$((255 - g))
+            comp_b=$((255 - b))
+
+            # Convert complementary RGB values back to hex, ensuring two digits
+            printf -v comp_r_hex "%02X" "$comp_r"
+            printf -v comp_g_hex "%02X" "$comp_g"
+            printf -v comp_b_hex "%02X" "$comp_b"
+            label_color="${comp_r_hex}${comp_g_hex}${comp_b_hex}"
+            echo "Complementary label color: #$label_color"
+
+            # Base64 encode the avatar image
+            base64_avatar=$(base64 -w 0 avatar.png)
+
+            # Construct the Shields.io badge URL
+            badge_url="https://img.shields.io/badge/$resource_path-$label_color?style=for-the-badge&logo=data:image/png;base64,$base64_avatar"
+
+            # Append to markdown file with a link to the repository
+            echo "[![]($badge_url)]($repo_url)" >> "$markdown_file"
+          done
+
+      - name: Upload Markdown File
+        uses: actions/upload-artifact@v3
+        with:
+          name: badges-${{ matrix.year }}
+          path: badges_${{ matrix.year }}.md
+
+  concat-markdown:
+    needs: query-contributions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Markdown Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: markdown_files
+
+      - name: Concatenate Markdown Files
+        run: |
+          echo "# Contributions Badges" > combined_badges.md
+
+          # Concatenate all markdown files
+          for file in markdown_files/**/*.md; do
+            cat "$file" >> combined_badges.md
+            echo "" >> combined_badges.md # Add a blank line between sections
+          done
+
+          cat combined_badges.md
+
+      - name: Upload Combined Markdown File
+        uses: actions/upload-artifact@v3
+        with:
+          name: combined-contribution-badges
+          path: combined_badges.md
