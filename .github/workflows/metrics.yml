@@ -29,7 +29,10 @@ jobs:
           plugin_languages_sections: most-used
           plugin_languages_threshold: 0%
           plugin_notable: yes
+          plugin_notable_filter: commits.user%:>0
           plugin_notable_from: all
+          plugin_notable_indepth: yes
+          plugin_notable_types: commit
           plugin_people: yes
           plugin_people_identicons_hide: yes
           plugin_people_limit: 21
