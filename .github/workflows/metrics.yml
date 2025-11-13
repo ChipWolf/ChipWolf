@@ -10,6 +10,9 @@ jobs:
   github-metrics:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Update badges
         uses: docker://ghcr.io/chipwolf/badgesort:latest
         with:
