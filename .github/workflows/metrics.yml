@@ -9,6 +9,8 @@ on:
 jobs:
   github-metrics:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,6 +37,14 @@ jobs:
             wikipedia?url=https://en.wikipedia.org/en/User:ChipWolf
           sort: step_invert
           style: for-the-badge
+
+      - name: Commit badge changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update badges - [Skip GitHub Action]"
+          git push
 
       - uses: lowlighter/metrics@latest
         with:
