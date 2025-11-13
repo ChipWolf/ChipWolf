@@ -40,3 +40,26 @@ jobs:
           plugin_people_size: 32
           plugin_people_types: followers
           repositories_forks: yes
+
+      - name: Update badges
+        uses: docker://ghcr.io/chipwolf/badgesort:latest
+        with:
+          format: markdown
+          id: default
+          output: README.md
+          slugs: |
+            amazonaws
+            discord
+            git
+            googlecloud
+            kubernetes
+            linkedin?url=https://linkedin.com/in/chipwolf
+            linux
+            microsoftazure
+            opencontainersinitiative
+            python
+            twilio
+            ublockorigin
+            wikipedia?url=https://en.wikipedia.org/en/User:ChipWolf
+          sort: step_invert
+          style: for-the-badge
